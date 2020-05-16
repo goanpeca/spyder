@@ -574,10 +574,10 @@ class Plugins:
     """
     Breakpoints = 'breakpoints'
     CodeAnalysis = 'code_analysis'
-    Completion = 'completion'
-    KiteCompletion = 'kite_completion'
-    FallBackCompletion = 'fallback_completion'
-    LanguageServerCompletion = 'lsp_completion'
+    CodeCompletion = 'code_completion'
+    KiteCompletion = 'kite'
+    FallBackCompletion = 'fallback'
+    LanguageServerCompletion = 'lsp'
     Console = 'internal_console'
     Editor = 'editor'
     Explorer = 'explorer'
@@ -1067,6 +1067,41 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
 
         return get_font(option=option, font_size_delta=font_size_delta)
 
+    def get_actions(self):  # Old name: get_plugin_actions
+        """
+        Return a dictionary of actions exposed by the plugin and child widgets.
+        Return all actions defined by the Spyder plugin widget.
+
+        Notes
+        -----
+        1. Actions should be created once. Creating new actions on menu popup
+           is *highly* discouraged.
+        2. To create an action the user must user this method on
+           SpyderWidgetMixin.
+        3. The PluginMainWidget will collect any actions defined in subwidgets
+           (if defined) and expose them in the get_actions method at the plugin
+           level.
+        4. Any action created this way is now exposed as a possible shortcut
+           automatically without manual shortcut registration.
+           If an option is found in the config then it is assigned otherwise
+           is left with an empty shortcut.
+        5. There is no need to override this method.
+        """
+        actions = self.get_widget().get_actions()
+        actions.update(super().get_actions())
+        return actions
+
+    def get_action(self, name):
+        """
+        Return action defined in any of the child widgets by name.
+        """
+        actions = self.get_widget().get_actions()
+        if name in actions:
+            return actions[name]
+        else:
+            raise SpyderAPIError('Action "{0}" not found! Available '
+                                 'actions are: {1}'.format(name, actions))
+
     # --- API: Mandatory methods to define -----------------------------------
     # ------------------------------------------------------------------------
     def get_name(self):
@@ -1110,15 +1145,15 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
         """
         raise NotImplementedError('A plugin icon must be defined!')
 
-    # --- API: Optional methods to override ----------------------------------
-    # ------------------------------------------------------------------------
     def register(self):  # Old name: register_plugin
         """
         Setup and register plugin in Spyder's main window and connect it to
         other plugins.
         """
-        pass
+        raise NotImplementedError('Must define a register method!')
 
+    # --- API: Optional methods to override ----------------------------------
+    # ------------------------------------------------------------------------
     def unregister(self):
         """
         Disconnect signals and clean up the plugin to be able to stop it while
@@ -1153,6 +1188,13 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
         installed.
 
         This method is called after the main window is visible.
+        """
+        pass
+
+    # FIXME: Better name
+    def on_visible(self):
+        """
+        Actions to be performed after the main window's has been shown.
         """
         pass
 
@@ -1282,8 +1324,8 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
         # if not isinstance(menu, ApplicationMenu):
         #     raise SpyderAPIError('Not an ApplicationMenu!')
 
-        # FIXME: Broken! For now just add to the bottom
-        #        Temporal solution while API for managing app menus is created
+        # TODO: For now just add to the bottom
+        #       Temporal solution while API for managing app menus is created
         app_menu_actions = {
             ApplicationMenus.File: self._main.file_menu_actions,
             ApplicationMenus.Edit: self._main.edit_menu_actions,
@@ -1316,21 +1358,27 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
 
         toolbar.addAction(item)
 
-    def add_status_widget(self, name, widget):
+    def add_application_status_widget(self, name, widget):
         """
         Add status widget to main application status bar.
         """
         # TODO: Check widget class
+        # TODO: Check existence
         status_bar = self._main.statusBar()
         status_bar.addWidget(widget)
         self._main._STATUS_WIDGETS[name] = widget
 
-    def add_application_toolbar(self, toolbar):
+    def add_application_toolbar(self, name, toolbar):
         """
-        TODO:
+        Add toolbar to application toolbars.
         """
+        if name in self._main._APPLICATION_TOOLBARS:
+            raise SpyderAPIError(
+                'Toolbar with name "{}" already added!'.format(name))
+
         iconsize = 24
         toolbar.setIconSize(QSize(iconsize, iconsize))
+        self._main._APPLICATION_TOOLBARS[name] = toolbar
         self.main.addToolBar(toolbar)
 
     def get_status_widget(self, name):
@@ -1344,7 +1392,11 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
 
     def get_application_toolbars(self):
         """Return all application toolbars created."""
-        return []
+        return self._main._APPLICATION_TOOLBARS
+
+    def get_status_widgets(self):
+        """Return all application status widgets created."""
+        return self._main._STATUS_WIDGETS
 
 
 class SpyderDockablePlugin(SpyderPluginV2):
@@ -1363,8 +1415,8 @@ class SpyderDockablePlugin(SpyderPluginV2):
     # The order of plugins defines the priority in case some plugin is not
     # found. These values are from the Plugins enumeration
     # Example: ['Plugins.Console', Plugin.Console]
-    # FIXME: Implement it like this
-    TABIFY = []
+    # TODO: Implement with list of sections
+    TABIFY = None
 
     # Disable actions in Spyder main menus when the plugin is not visible
     DISABLE_ACTIONS_WHEN_HIDDEN = True
@@ -1398,7 +1450,7 @@ class SpyderDockablePlugin(SpyderPluginV2):
         widget.set_icon(self.get_icon())
         widget.set_name(self.NAME)
 
-        # FIXME: Streamline this by moving to postvisible setup
+        # TODO: Streamline this by moving to postvisible setup
         # Render all toolbars as a final separate step on the main window
         # in case some plugins want to extend a toolbar. Since the rendering
         # can only be done once!
@@ -1413,41 +1465,6 @@ class SpyderDockablePlugin(SpyderPluginV2):
 
     # --- API: available methods ---------------------------------------------
     # ------------------------------------------------------------------------
-    def get_actions(self):  # Old name: get_plugin_actions
-        """
-        Return a dictionary of actions exposed by the plugin and child widgets.
-        Return all actions defined by the Spyder plugin widget.
-
-        Notes
-        -----
-        1. Actions should be created once. Creating new actions on menu popup
-           is *highly* discouraged.
-        2. To create an action the user must user this method on
-           SpyderWidgetMixin.
-        3. The PluginMainWidget will collect any actions defined in subwidgets
-           (if defined) and expose them in the get_actions method at the plugin
-           level.
-        4. Any action created this way is now exposed as a possible shortcut
-           automatically without manual shortcut registration.
-           If an option is found in the config then it is assigned otherwise
-           is left with an empty shortcut.
-        5. There is no need to override this method.
-        """
-        actions = self.get_widget().get_actions()
-        actions.update(super().get_actions())
-        return actions
-
-    def get_action(self, name):
-        """
-        Return action defined in any of the child widgets by name.
-        """
-        actions = self.get_widget().get_actions()
-        if name in actions:
-            return actions[name]
-        else:
-            raise SpyderAPIError('Action "{0}" not found! Available '
-                                 'actions are: {1}'.format(name, actions))
-
     def update_title(self):
         """
         Update plugin title, i.e. dockwidget or window title.

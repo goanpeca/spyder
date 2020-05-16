@@ -20,6 +20,7 @@ def request(req=None, method=None, requires_response=True):
         params = req(self, *args, **kwargs)
         if params is not None and self.completions_available:
             self.emit_request(method, params, requires_response)
+
     return wrapper
 
 
@@ -30,6 +31,7 @@ def class_register(cls):
         method = getattr(cls, method_name)
         if hasattr(method, '_handle'):
             cls.handler_registry.update({method._handle: method_name})
+
     return cls
 
 
@@ -38,4 +40,5 @@ def handles(method_name):
     def wrapper(func):
         func._handle = method_name
         return func
+
     return wrapper

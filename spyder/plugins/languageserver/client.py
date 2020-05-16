@@ -28,14 +28,15 @@ import psutil
 # Local imports
 from spyder.config.base import (DEV, get_conf_path, get_debug_level,
                                 running_under_pytest)
-from spyder.plugins.completion.languageserver import (
+from spyder.plugins.completion.api import LSPRequestTypes
+from spyder.plugins.languageserver import (
     CLIENT_CAPABILITES, SERVER_CAPABILITES, TRACE,
-    TEXT_DOCUMENT_SYNC_OPTIONS, LSPRequestTypes,
+    TEXT_DOCUMENT_SYNC_OPTIONS,
     ClientConstants)
-from spyder.plugins.completion.languageserver.decorators import (
+from spyder.plugins.languageserver.decorators import (
     send_request, send_notification, class_register, handles)
-from spyder.plugins.completion.languageserver.transport import MessageKind
-from spyder.plugins.completion.languageserver.providers import (
+from spyder.plugins.languageserver.transport import MessageKind
+from spyder.plugins.languageserver.providers import (
     LSPMethodProviderMixIn)
 from spyder.py3compat import PY2
 from spyder.utils.environ import clean_env

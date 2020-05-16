@@ -13,7 +13,7 @@ import logging
 import os
 
 # Third party imports
-from qtpy.QtCore import QPoint, Slot
+from qtpy.QtCore import QPoint, Signal, Slot
 from qtpy.QtWidgets import QMenu
 
 # Local imports
@@ -27,17 +27,14 @@ logger = logging.getLogger(__name__)
 
 class LSPStatusWidget(StatusBarWidget):
     """Status bar widget for LSP  status."""
-
-    BASE_TOOLTIP = _(
-        "Completions, linting, code\n"
-        "folding and symbols status."
-    )
     STATUS = "LSP {}: {}"
 
-    def __init__(self, parent, statusbar, plugin):
-        self.tooltip = self.BASE_TOOLTIP
+    # Signal
+    sig_restart_requested = Signal(str, bool)
+
+    def __init__(self, parent=None, plugin=None):
         super(LSPStatusWidget, self).__init__(
-            parent, statusbar, icon=ima.icon('lspserver'))
+            parent, None, icon=ima.icon('lspserver'))
 
         self.plugin = plugin
         self.menu = QMenu(self)
@@ -51,16 +48,16 @@ class LSPStatusWidget(StatusBarWidget):
     def show_menu(self):
         """Display a menu when clicking on the widget."""
         menu = self.menu
-        language = self.get_current_editor_language().lower()
+        language = self.current_language
 
         if language is not None:
             menu.clear()
             text = _(
-                "Restart {} Language Server").format(language.capitalize())
+                "Restart {} Language Server").format(language.capitalize()  )
             restart_action = create_action(
                 self,
                 text=text,
-                triggered=lambda: self.plugin.restart_lsp(language, force=True),
+                triggered=lambda: self.sig_restart_requested(language, force=True),
             )
             add_actions(menu, [restart_action])
             rect = self.contentsRect()
@@ -69,18 +66,14 @@ class LSPStatusWidget(StatusBarWidget):
                 rect.topLeft() + QPoint(-40, -rect.height() - os_height))
             menu.popup(pos)
 
-    def set_value(self, value):
-        """Return lsp state."""
-        super(LSPStatusWidget, self).set_value(value)
-
     def get_tooltip(self):
         """Reimplementation to get a dynamic tooltip."""
-        return self.tooltip
+        return _("Completions, linting, code\nfolding and symbols status.")
 
     @Slot()
     def update_status(self, lsp_language=None, status=None):
         """Update status message."""
-        editor_language = self.get_current_editor_language()
+        editor_language = self.current_language
 
         # This case can only happen when switching files in the editor
         if lsp_language is None and status is None:
@@ -92,6 +85,7 @@ class LSPStatusWidget(StatusBarWidget):
                     lsp_language, _("starting..."))
                 self.set_value(self.STATUS.format(editor_language, status))
                 self.setVisible(True)
+
             return
 
         # Don't update the status in case the editor and LSP languages
@@ -102,13 +96,20 @@ class LSPStatusWidget(StatusBarWidget):
             self.set_value(self.STATUS.format(editor_language, status))
             self.setVisible(True)
 
-    def get_current_editor_language(self):
-        """Get current LSP language."""
-        main = self.plugin.main
-        language = _('Unknown')
+    def set_current_editor_language(self, language=None):
+        if language is None:
+            language = _('Unknown')
+        else:
+            language = language.lower()
 
-        if main and main.editor:
-            codeeditor = main.editor.get_current_editor()
-            if codeeditor is not None:
-                language = codeeditor.language
-        return language
+        self.current_language = language 
+
+    # FIXME: update this from the plugin
+    # def get_current_editor_language(self):
+    #     """Get current LSP language."""
+    #     main = self.plugin.main
+    #     if main and main.editor:
+    #         codeeditor = main.editor.get_current_editor()
+    #         if codeeditor is not None:
+    #             language = codeeditor.language
+    #     return language

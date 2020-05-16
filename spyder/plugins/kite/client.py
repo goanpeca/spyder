@@ -19,11 +19,10 @@ import requests
 
 # Local imports
 from spyder.config.base import _
-from spyder.plugins.completion.kite import KITE_ENDPOINTS, KITE_REQUEST_MAPPING
-from spyder.plugins.completion.kite.decorators import class_register
-from spyder.plugins.completion.kite.providers import KiteMethodProviderMixIn
-from spyder.plugins.completion.kite.utils.status import (
-    status, check_if_kite_running)
+from spyder.plugins.kite import KITE_ENDPOINTS, KITE_REQUEST_MAPPING
+from spyder.plugins.kite.decorators import class_register
+from spyder.plugins.kite.providers import KiteMethodProviderMixIn
+from spyder.plugins.kite.utils.status import status, check_if_kite_running
 from spyder.py3compat import (
     ConnectionError, ConnectionRefusedError, TEXT_TYPES)
 
@@ -151,7 +150,7 @@ class KiteClient(QObject, KiteMethodProviderMixIn):
                 for (key, value) in url_params.items()}
             path = path.format(**encoded_url_params)
             try:
-                success, response = self.perform_http_request(
+                __, response = self.perform_http_request(
                     http_verb, path, params=params)
             except (ConnectionRefusedError, ConnectionError):
                 return response

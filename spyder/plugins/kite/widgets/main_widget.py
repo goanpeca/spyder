@@ -4,57 +4,63 @@
 # Licensed under the terms of the MIT License
 # (see spyder/__init__.py for details)
 
-"""Kite completion HTTP client."""
+"""
+Kite completion widget.
+"""
 
 # Standard library imports
-import logging
 import functools
-import os.path as osp
+import logging
+import os
 
-# Qt imports
-from qtpy.QtCore import Slot
+# Third party imports
+from qtpy.QtCore import Slot, Signal
 from qtpy.QtWidgets import QMessageBox
 
 # Local imports
-from spyder.config.base import _, running_under_pytest
-from spyder.config.manager import CONF
+from spyder.api.widgets import PluginWidget
+from spyder.config.base import running_under_pytest
+from spyder.plugins.completion.api import SpyderCompletionMixin
+from spyder.plugins.kite.client import KiteClient
+from spyder.plugins.kite.utils.install import KiteInstallationThread
+from spyder.plugins.kite.utils.status import (check_if_kite_installed,
+                                              check_if_kite_running)
+from spyder.plugins.kite.widgets.install import KiteInstallerDialog
+from spyder.plugins.kite.widgets.status import KiteStatusWidget
 from spyder.utils.programs import run_program
-from spyder.api.completion import SpyderCompletionPlugin
-from spyder.plugins.completion.kite.client import KiteClient
-from spyder.plugins.completion.kite.utils.status import (
-    check_if_kite_running, check_if_kite_installed)
-from spyder.plugins.completion.kite.utils.install import (
-    KiteInstallationThread)
-from spyder.plugins.completion.kite.widgets.install import KiteInstallerDialog
-from spyder.plugins.completion.kite.widgets.status import KiteStatusWidget
 from spyder.widgets.helperwidgets import MessageCheckBox
 
 
 logger = logging.getLogger(__name__)
 
 
-class KiteCompletionPlugin(SpyderCompletionPlugin):
-    CONF_SECTION = 'kite'
-    CONF_FILE = False
+class KiteCompletionClient(PluginWidget, SpyderCompletionMixin):
+    DEFAULT_OPTIONS = {
+        'enable': True,
+        'call_to_action': True,
+        'code_snippets': True,
+        'show_installation_dialog': True,
+        'show_installation_error_message': True,
+        'show_onboarding': True,
+    }
 
-    COMPLETION_CLIENT_NAME = 'kite'
+    # Signals
+    sig_response_ready = Signal(str, int, dict)
+    sig_plugin_ready = Signal(str)
 
-    def __init__(self, parent):
-        SpyderCompletionPlugin.__init__(self, parent)
+    def __init__(self, name, plugin, parent=None, options=DEFAULT_OPTIONS):
+        super().__init__(name, plugin, parent=parent, options=options)
+
         self.available_languages = []
-        self.client = KiteClient(None)
         self.kite_process = None
-
-        # Installation dialog
-        self.installation_thread = KiteInstallationThread(self)
-        self.installer = KiteInstallerDialog(
-            parent,
-            self.installation_thread)
-
-        # Status widget
-        statusbar = parent.statusBar()  # MainWindow status bar
         self.open_file_updated = False
-        self.status_widget = KiteStatusWidget(None, statusbar, self)
+        self.name = name
+
+        # Widgets
+        self.client = KiteClient(None)
+        self.installation_thread = KiteInstallationThread(self)
+        self.installer = KiteInstallerDialog(parent, self.installation_thread)
+        self.status_widget = KiteStatusWidget(self)
 
         # Signals
         self.client.sig_client_started.connect(self.http_client_ready)
@@ -63,19 +69,18 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
         self.client.sig_status_response_ready[dict].connect(
             self.set_status)
         self.client.sig_response_ready.connect(
-            functools.partial(self.sig_response_ready.emit,
-                              self.COMPLETION_CLIENT_NAME))
+            functools.partial(self.sig_response_ready.emit, name))
 
-        self.client.sig_response_ready.connect(self._kite_onboarding)
-        self.client.sig_status_response_ready.connect(self._kite_onboarding)
+        self.client.sig_response_ready.connect(self.start_kite_onboarding)
+        self.client.sig_status_response_ready.connect(self.start_kite_onboarding)
         self.client.sig_onboarding_response_ready.connect(
-            self._show_onboarding_file)
+            self.show_onboarding_file)
 
         self.installation_thread.sig_installation_status.connect(
             self.set_status)
         self.status_widget.sig_clicked.connect(
             self.show_installation_dialog)
-        self.main.sig_setup_finished.connect(self.mainwindow_setup_finished)
+        # self.main.sig_setup_finished.connect(self.mainwindow_setup_finished)
 
         # Config
         self.update_configuration()
@@ -84,22 +89,8 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
     def http_client_ready(self, languages):
         logger.debug('Kite client is available for {0}'.format(languages))
         self.available_languages = languages
-        self.sig_plugin_ready.emit(self.COMPLETION_CLIENT_NAME)
-        self._kite_onboarding()
-
-    @Slot()
-    def mainwindow_setup_finished(self):
-        """
-        This is called after the main window setup finishes to show Kite's
-        installation dialog and onboarding if necessary.
-        """
-        self._kite_onboarding()
-
-        show_dialog = self.get_option('show_installation_dialog')
-        if show_dialog:
-            # Only show the dialog once at startup
-            self.set_option('show_installation_dialog', False)
-            self.show_installation_dialog()
+        self.sig_plugin_ready.emit(self.name)
+        # self._kite_onboarding()
 
     @Slot(str)
     @Slot(dict)
@@ -110,7 +101,7 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
     @Slot()
     def show_installation_dialog(self):
         """Show installation dialog."""
-        installed, path = check_if_kite_installed()
+        installed, __ = check_if_kite_installed()
         if not installed and not running_under_pytest():
             self.installer.show()
 
@@ -118,7 +109,7 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
         if self.enabled and language in self.available_languages:
             self.client.sig_perform_request.emit(req_id, req_type, req)
         else:
-            self.sig_response_ready.emit(self.COMPLETION_CLIENT_NAME,
+            self.sig_response_ready.emit(self.name,
                                          req_id, {})
 
     def send_status_request(self, filename):
@@ -126,20 +117,39 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
         if not self.is_installing():
             self.client.sig_perform_status_request.emit(filename)
 
+    # --- API for SpyderPlugin
+    # ------------------------------------------------------------------------
+    def setup(self, options=DEFAULT_OPTIONS):
+        pass
+
+    def on_option_update(self, value, option):
+        pass
+
+    def update_actions(self):
+        pass
+
+    # --- API for completion mixin
+    # ------------------------------------------------------------------------
     def start_client(self, language):
         return language in self.available_languages
+
+    def stop_client(self, language):
+        pass
 
     def start(self):
         try:
             if not self.enabled:
                 return
+
             installed, path = check_if_kite_installed()
             if not installed:
                 return
+
             logger.debug('Kite was found on the system: {0}'.format(path))
             running = check_if_kite_running()
             if running:
                 return
+
             logger.debug('Starting Kite service...')
             self.kite_process = run_program(path)
         except OSError:
@@ -148,7 +158,7 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
                 'Error starting Kite service at {path}...'.format(path=path))
             if self.get_option('show_installation_error_message'):
                 box = MessageCheckBox(
-                    icon=QMessageBox.Critical, parent=self.main)
+                    icon=QMessageBox.Critical, parent=self)
                 box.setWindowTitle(_("Kite installation error"))
                 box.set_checkbox_text(_("Don't show again."))
                 box.setStandardButtons(QMessageBox.Ok)
@@ -162,7 +172,7 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
                       "directory that appears bellow, "
                       "and try a reinstallation:<br><br>"
                       "<code>{kite_dir}</code>".format(
-                          kite_dir=osp.dirname(path))))
+                          kite_dir=os.path.dirname(path))))
 
                 box.exec_()
 
@@ -179,11 +189,27 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
             self.kite_process.kill()
 
     def update_configuration(self):
-        self.client.enable_code_snippets = CONF.get('lsp-server',
-                                                    'code_snippets')
+        self.client.enable_code_snippets = self.get_option('code_snippets')
         self.enabled = self.get_option('enable')
         self._show_onboarding = self.get_option('show_onboarding')
 
+    def register_file(self, language, filename, codeeditor):
+        pass
+
+    def send_notification(self, language, notification_type, notification):
+        pass
+
+    def send_response(self, response, resp_id):
+        pass
+
+    def broadcast_notification(self, notification_type, notification):
+        pass
+
+    def project_path_update(self, project_path, update_kind):
+        pass
+
+    # --- API
+    # ------------------------------------------------------------------------
     def is_installing(self):
         """Check if an installation is taking place."""
         return (self.installation_thread.isRunning()
@@ -193,32 +219,37 @@ class KiteCompletionPlugin(SpyderCompletionPlugin):
         """Check if an installation was cancelled or failed."""
         return self.installation_thread.cancelled_or_errored()
 
-    def _kite_onboarding(self):
+    def start_kite_onboarding(self):
         """Request the onboarding file."""
         # No need to check installed status,
         # since the get_onboarding_file call fails fast.
         if not self.enabled:
             return
+
         if not self._show_onboarding:
             return
-        if self.main.is_setting_up:
-            return
+
+        # if self.main.is_setting_up:
+        #     return
+
         if not self.available_languages:
             return
+
         # Don't send another request until this request fails.
         self._show_onboarding = False
         self.client.sig_perform_onboarding_request.emit()
 
     @Slot(str)
-    def _show_onboarding_file(self, onboarding_file):
+    def show_onboarding_file(self, onboarding_file):
         """
         Opens the onboarding file, which is retrieved
         from the Kite HTTP endpoint. This skips onboarding if onboarding
         is not possible yet or has already been displayed before.
         """
         if not onboarding_file:
-            # retry
+            # Retry
             self._show_onboarding = True
             return
+
         self.set_option('show_onboarding', False)
-        self.main.open_file(onboarding_file)
+        # self.main.open_file(onboarding_file)

@@ -14,9 +14,8 @@ import os
 import os.path as osp
 
 from qtpy.QtCore import QMutexLocker
-from spyder.plugins.completion.kite.decorators import send_request, handles
-from spyder.plugins.completion.languageserver import (
-    LSPRequestTypes, CompletionItemKind)
+from spyder.plugins.completion.api import CompletionItemKind, LSPRequestTypes
+from spyder.plugins.kite.decorators import send_request, handles
 
 
 # Kite can return e.g. "int | str", so we make the default hint VALUE.

@@ -13,31 +13,55 @@ Wraps FallbackActor to provide compatibility with SpyderCompletionPlugin API.
 # Standard library imports
 import logging
 
+# Third party modules
+from qtpy.QtCore import Signal
+
 # Local imports
-from spyder.api.completion import SpyderCompletionPlugin
-from spyder.plugins.completion.fallback.actor import FallbackActor
+from spyder.api.widgets import PluginWidget
+from spyder.plugins.completion.api import SpyderCompletionMixin
+from spyder.plugins.fallback.actor import FallbackActor
 
 
 logger = logging.getLogger(__name__)
 
 
-class FallbackPlugin(SpyderCompletionPlugin):
-    CONF_SECTION = 'fallback-completions'
-    CONF_FILE = False
-    COMPLETION_CLIENT_NAME = 'fallback'
+class FallbackClient(PluginWidget, SpyderCompletionMixin):
+    DEFAULT_OPTIONS = {
+        'enable': True,
+    }
 
-    def __init__(self, parent):
-        SpyderCompletionPlugin.__init__(self, parent)
-        self.fallback_actor = FallbackActor(self)
-        self.fallback_actor.sig_fallback_ready.connect(
-            lambda: self.sig_plugin_ready.emit(self.COMPLETION_CLIENT_NAME))
-        self.fallback_actor.sig_set_tokens.connect(
-            lambda _id, resp: self.sig_response_ready.emit(
-                self.COMPLETION_CLIENT_NAME, _id, resp))
+    # Signals
+    sig_response_ready = Signal(str, int, dict)
+    sig_plugin_ready = Signal(str)
+
+    def __init__(self, name, plugin, parent=None, options=DEFAULT_OPTIONS):
+        super().__init__(name, plugin, parent=parent, options=options)
+
         self.started = False
         self.requests = {}
+        self.fallback_actor = FallbackActor(self)
+
+        # Signals
+        self.fallback_actor.sig_fallback_ready.connect(
+            lambda: self.sig_plugin_ready.emit(name))
+        self.fallback_actor.sig_set_tokens.connect(
+            lambda _id, resp: self.sig_response_ready.emit(name, _id, resp))
+
         self.update_configuration()
 
+    # --- PluginWidget API
+    # ------------------------------------------------------------------------
+    def setup(self, options=DEFAULT_OPTIONS):
+        pass
+
+    def on_option_update(self, option, value):
+        pass
+
+    def update_actions(self):
+        pass
+
+    # --- SpyderCompletionMixin API
+    # ------------------------------------------------------------------------
     def start_client(self, language):
         return self.started
 
@@ -66,3 +90,6 @@ class FallbackPlugin(SpyderCompletionPlugin):
     def update_configuration(self):
         self.enabled = self.get_option('enable')
         self.start()
+
+    def register_file(self, language, filename, codeeditor):
+        pass

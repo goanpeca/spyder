@@ -310,6 +310,8 @@ class MainWindow(QMainWindow):
         # Check plugin compatibility
         is_compatible, message = plugin.check_compatibility()
         plugin.is_compatible = is_compatible
+        plugin.get_description()
+
         if not is_compatible:
             self.show_compatibility_message(message)
             return None
@@ -552,6 +554,7 @@ class MainWindow(QMainWindow):
         self.project_path = ()
 
         # New API
+        self._APPLICATION_TOOLBARS = OrderedDict()
         self._STATUS_WIDGETS = OrderedDict()
         self._PLUGINS = OrderedDict()
 
@@ -968,7 +971,7 @@ class MainWindow(QMainWindow):
                             "(i.e. for all sessions)"),
                     triggered=self.win_env)
             self.tools_menu_actions.append(winenv_action)
-        from spyder.plugins.completion.kite.utils.install import (
+        from spyder.plugins.kite.utils.install import (
             check_if_kite_installed)
         is_kite_installed, kite_path = check_if_kite_installed()
         if not is_kite_installed:
@@ -1090,11 +1093,6 @@ class MainWindow(QMainWindow):
         self.console.register_plugin()
         self.add_plugin(self.console)
 
-        # Code completion client initialization
-        self.set_splash(_("Starting code completion manager..."))
-        from spyder.plugins.completion.plugin import CompletionManager
-        self.completions = CompletionManager(self)
-
         # Working directory plugin
         logger.info("Loading working directory...")
         from spyder.plugins.workingdirectory.plugin import WorkingDirectory
@@ -1125,6 +1123,11 @@ class MainWindow(QMainWindow):
                                             icon=ima.icon('environment'))
             self.conda_status.update_interpreter(self.get_main_interpreter())
 
+        # Code completion plugin
+        from spyder.plugins.completion.plugin import CodeCompletion
+        self.completions = CodeCompletion(self, configuration=CONF)
+        self.register_plugin(self.completions)
+
         # Editor plugin
         self.set_splash(_("Loading editor..."))
         from spyder.plugins.editor.plugin import Editor
@@ -1132,8 +1135,22 @@ class MainWindow(QMainWindow):
         self.editor.register_plugin()
         self.add_plugin(self.editor)
 
-        # Start code completion client
-        self.set_splash(_("Launching code completion client for Python..."))
+        # Language server plugin
+        from spyder.plugins.languageserver.plugin import LanguageServer
+        self.languageserver = LanguageServer(self, configuration=CONF)
+        self.register_plugin(self.languageserver)
+
+        # Kite plugin
+        from spyder.plugins.kite.plugin import Kite
+        self.kite = Kite(self, configuration=CONF)
+        self.register_plugin(self.kite)
+
+        # Fallback plugin
+        from spyder.plugins.fallback.plugin import Fallback
+        self.fallback = Fallback(self, configuration=CONF)
+        self.register_plugin(self.fallback)
+
+        # FIXME: This should go as part of the Plugin API or the Python plugin
         self.completions.start()
         self.completions.start_client(language='python')
 
@@ -1615,7 +1632,7 @@ class MainWindow(QMainWindow):
                 self.editor.setup_open_files()
 
         # Connect Editor to Kite completions plugin status
-        self.editor.kite_completions_file_status()
+        # self.editor.kite_completions_file_status()
 
         # Connect Editor debug action with Console
         self.ipyconsole.sig_pdb_state.connect(self.editor.update_pdb_state)

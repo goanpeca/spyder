@@ -23,7 +23,7 @@ from qtpy.QtCore import QThread, Signal
 # Local imports
 from spyder.config.base import _
 from spyder.py3compat import PY2, to_text_string
-from spyder.plugins.completion.kite.utils.status import check_if_kite_installed
+from spyder.plugins.kite.utils.status import check_if_kite_installed
 
 if PY2:
     from urllib import urlretrieve

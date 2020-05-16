@@ -10,14 +10,15 @@
 import logging
 
 # Local imports
-from spyder.plugins.completion.languageserver import (
-    LSPRequestTypes, InsertTextFormat, CompletionItemKind,
-    ClientConstants)
-from spyder.plugins.completion.languageserver.providers.utils import (
-    path_as_uri, process_uri)
-from spyder.plugins.completion.languageserver.decorators import (
-    handles, send_request, send_notification)
-
+from spyder.plugins.completion.api import CompletionItemKind, LSPRequestTypes
+from spyder.plugins.languageserver import (ClientConstants,
+                                           InsertTextFormat)
+# FIXME: Move to completion api
+from spyder.plugins.languageserver.decorators import (handles,
+                                                      send_notification,
+                                                      send_request)
+from spyder.plugins.languageserver.providers.utils import (path_as_uri,
+                                                           process_uri)
 
 LSP_COMPLETION = "LSP"
 
