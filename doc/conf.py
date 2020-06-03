@@ -18,9 +18,111 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+import importlib
+
+HERE = os.path.abspath(os.path.dirname(__file__))
+REPO = os.path.dirname(HERE)
+SPYDER = os.path.join(REPO, 'spyder-repo')
+sys.path.insert(0, SPYDER)
+from qtpy.QtCore import Qt, QCoreApplication
+from qtpy.QtWidgets import QApplication
+QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+app = QApplication([])
+
+# QPrinter error is being raise so we dd qtpy here
+autodoc_mock_imports = [
+    "PyQt5",
+    "qtconsole",
+    "qtpy",
+]
+nitpick_ignore = [
+    ('py:class', 'configparser.ConfigParser'),
+    ('py:class', 'object'),
+    ('py:class', 'QtGui.QTextCursor'),
+    ('py:class', 'QtGui.QColor'),
+    ('py:class', 'QtGui.QBrush'),
+    ('py:class', 'qtpy.QtWidgets.QComboBox'),
+    ('py:class', 'threading.Thread'),
+    ('py:class', 'callable'),
+    ('py:class', 'code.InteractiveConsole'),
+    ('py:class', 'spyder.plugins.completion.kite.KiteEndpoints'),
+    ('py:class', 'optional'),
+    ('py:class', 'collections.abc.MutableSequence'),
+    ('py:class', 'PyQt5.QtCore.QAbstractTableModel'),
+    ('py:class', 'PyQt5.QtCore.QObject'),
+    ('py:class', 'PyQt5.QtWidgets.QDialog'),
+    ('py:class', 'PyQt5.QtWidgets.QMainWindow'),
+    ('py:class', 'PyQt5.QtWidgets.QMenu'),
+    ('py:class', 'PyQt5.QtWidgets.QToolBar'),
+    ('py:class', 'PyQt5.QtWidgets.QWidget'),
+    ('py:class', 'PyQt5.QtWidgets.QItemDelegate'),
+    ('py:class', 'PyQt5.QtWidgets.QTableView'),
+    ('py:class', 'PyQt5.QtWidgets.QFrame'),
+    ('py:class', 'PyQt5.QtWidgets.ExtraSelection'),
+    ('py:class', 'PyQt5.QtCore.QThread'),
+    ('py:class', 'PyQt5.QtWidgets.QPlainTextEdit'),
+    ('py:class', 'PyQt5.QtCore.QAbstractItemModel'),
+    ('py:class', 'PyQt5.QtCore.QSortFilterProxyModel'),
+    ('py:class', 'PyQt5.QtWidgets.QListWidget'),
+    ('py:class', 'PyQt5.QtWidgets.QSplitter'),
+    ('py:class', 'PyQt5.QtWidgets.QTreeView'),
+    ('py:class', 'PyQt5.QtWidgets.QTreeWidget'),
+    ('py:class', 'PyQt5.QtWidgets.QFileIconProvider'),
+    ('py:class', 'PyQt5.QtWidgets.QTreeWidgetItem'),
+    ('py:class', 'PyQt5.QtWidgets.QStyledItemDelegate'),
+    ('py:class', 'PyQt5.QtWidgets.QLineEdit'),
+    ('py:class', 'PyQt5.QtWidgets.QKeySequenceEdit'),
+    ('py:class', 'PyQt5.QtWidgets.QApplication'),
+    ('py:class', 'PyQt5.QtWidgets.QAction'),
+    ('py:class', 'PyQt5.QtWidgets.QProxyStyle'),
+    ('py:class', 'PyQt5.QtWidgets.QComboBox'),
+    ('py:class', 'PyQt5.QtWidgets.QTextEdit'),
+    ('py:class', 'PyQt5.QtWidgets.QTableWidget'),
+    ('py:class', 'PyQt5.QtWidgets.QScrollArea'),
+    ('py:class', 'PyQt5.QtWidgets.QLabel'),
+    ('py:class', 'PyQt5.QtWidgets.QHBoxLayout'),
+    ('py:class', 'PyQt5.QtWidgets.QHeaderView'),
+    ('py:class', 'PyQt5.QtWidgets.QPushButton'),
+    ('py:class', 'PyQt5.QtWidgets.QToolButton'),
+    ('py:class', 'PyQt5.QtWidgets.QDockWidget'),
+    ('py:class', 'PyQt5.QtWidgets.QMessageBox'),
+    ('py:class', 'PyQt5.QtWidgets.QTabWidget'),
+    ('py:class', 'PyQt5.QtWidgets.QTabBar'),
+    ('py:class', 'QAction'),
+    ('py:class', 'QFont'),
+    ('py:class', 'QLayout'),
+    ('py:class', 'QIcon'),
+    ('py:class', 'QObject'),
+    ('py:class', 'QColor'),
+    ('py:class', 'QShortcut'),
+    ('py:class', 'QWidget'),
+    ('py:class', 'QTextBlock'),
+    ('py:class', 'QTextCursor'),
+    ('py:class', 'QSize'),
+    ('py:class', 'QMainWidget'),
+    ('py:class', 'QIndex'),
+    ('py:class', 'QModelIndex'),
+    ('py:class', 'Qt.ItemFlags'),
+    ('py:class', 'spyder_kernels.comms.commbase.CommBase'),
+    ('py:class', 'jupyter_client.kernelspec.KernelSpec'),
+    ('py:class', 'IPython.core.history.HistoryManager'),
+    ('py:class', 'pydoc.Doc'),
+    ('py:class', 'watchdog.utils.BaseThread'),
+    ('py:class', 'watchdog.events.FileSystemEventHandler'),
+    ('py:class', 'FileCreatedEvent'),
+    ('py:class', 'FileDeletedEvent'),
+    ('py:class', 'FileModifiedEvent'),
+    ('py:class', 'FileMovedEvent'),
+    ('py:class', 'DirCreatedEvent'),
+    ('py:class', 'DirDeletedEvent'),
+    ('py:class', 'DirModifiedEvent'),
+    ('py:class', 'DirMovedEvent'),
+    ('py:class', 'objbrowser.treeitem.TreeItem'),
+    ('py:class', 'SRE_Pattern'),
+    ('py:class', 'pygments.lexer.RegexLexer'),
+]
 
 
 # -- General configuration ---------------------------------------------------
@@ -32,6 +134,9 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
+    "sphinx.ext.autodoc",
+    'sphinx.ext.napoleon',
+    "sphinx.ext.viewcode",
     'sphinx.ext.githubpages',
 ]
 
@@ -83,7 +188,13 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = [
+    '_build',
+    'Thumbs.db',
+    '.DS_Store',
+    '*tests*',
+    'spyder.utils.external.*',
+]
 
 # List of directories, relative to source directory, that shouldn't be searched
 # for source files.
@@ -276,3 +387,16 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+# Napoleon settings
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
