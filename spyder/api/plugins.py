@@ -578,6 +578,7 @@ class Plugins:
     Breakpoints = 'breakpoints'
     CodeAnalysis = 'code_analysis'
     CodeCompletion = 'code_completion'
+    CompletionManager = 'completion_manager'
     KiteCompletion = 'kite'
     FallBackCompletion = 'fallback'
     LanguageServerCompletion = 'lsp'

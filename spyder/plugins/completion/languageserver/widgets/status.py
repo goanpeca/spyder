@@ -104,7 +104,8 @@ class LSPStatusWidget(StatusBarWidget):
 
     def get_current_editor_language(self):
         """Get current LSP language."""
-        main = self.plugin.main
+        # FIXME: Temporal hack!
+        main = self.plugin._main
         language = _('Unknown')
 
         if main and main.editor:

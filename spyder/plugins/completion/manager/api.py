@@ -8,11 +8,15 @@
 LSP client, code introspection and linting utilities.
 """
 
+# Third party imports
 from qtpy.QtCore import QObject, Signal
-from spyder.api.plugins import SpyderPlugin
+
+# Local imports
+from spyder.config.user import NoDefault
+from spyder.api.plugins import SpyderPluginV2
 
 
-class SpyderCompletionPlugin(QObject, SpyderPlugin):
+class BaseCompletionProvider(QObject):
     """
     Spyder plugin API for completion clients.
 
@@ -20,26 +24,61 @@ class SpyderCompletionPlugin(QObject, SpyderPlugin):
     with Spyder CodeEditor and Projects manager.
     """
 
-    # Use this signal to send a response back to the completion manager
-    # str: Completion client name
-    # int: Request sequence identifier
-    # dict: Response dictionary
+    ID = None
+    """Unique string identifier of the completion service"""
+
+    # --- Signals
+    # ------------------------------------------------------------------------
     sig_response_ready = Signal(str, int, dict)
+    """
+    Use this signal to send a response back to the completion manager
 
-    # Use this signal to indicate that the plugin is ready
-    sig_plugin_ready = Signal(str)
+    Parameters
+    ----------
+    str:
+        Completion client name
+    int:
+        Request sequence identifier
+    dict:
+        Response dictionary
+    """
 
-    # ---------------------------- ATTRIBUTES ---------------------------------
+    sig_provider_ready = Signal(str)
+    """
+    Use this signal to indicate that the provider is ready.
 
-    # Name of the completion service
-    # Status: Required
-    COMPLETION_CLIENT_NAME = None
+    Parameters
+    ----------
+    provider_id: str
+        Unique string identifier.
+    """
 
-    def __init__(self, parent):
-        QObject.__init__(self, parent)
-        SpyderPlugin.__init__(self, parent)
-        self.main = parent
+    def __init__(self, plugin):
+        super().__init__()
 
+        self.plugin = plugin
+
+        self._check_interface()
+
+    def _check_interface(self):
+        if self.ID is None:
+            raise Exception("A completion provider must provide an `ID`!")
+
+        if not isinstance(self.plugin, SpyderPluginV2):
+            raise Exception(
+                "A completion provider parent must subclass SpyderPluginV2!")
+
+    # --- Configuration access
+    # ------------------------------------------------------------------------
+    def get_option(self, option, default=NoDefault, section=None):
+        return self.plugin.get_conf_option(
+            option, default=default, section=section)
+
+    def set_option(self, option, value, section=None):
+        return self.plugin.set_conf_option(option, value, section=None)
+
+    # --- API
+    # ------------------------------------------------------------------------
     def register_file(self, language, filename, codeeditor):
         """
         Register file to perform completions.
@@ -182,7 +221,7 @@ class SpyderCompletionPlugin(QObject, SpyderPlugin):
 
     def start(self):
         """Start completion plugin."""
-        self.sig_plugin_ready.emit(self.COMPLETION_CLIENT_NAME)
+        self.sig_provider_ready.emit(self.ID)
 
     def shutdown(self):
         """Stop completion plugin."""

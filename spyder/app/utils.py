@@ -118,18 +118,6 @@ def setup_logging(cli_options):
             root_logger.addHandler(handler)
 
 
-def delete_lsp_log_files():
-    """Delete previous dead Spyder instances LSP log files."""
-    regex = re.compile(r'.*_.*_(\d+)[.]log')
-    files = glob.glob(osp.join(get_conf_path('lsp_logs'), '*.log'))
-    for f in files:
-        match = regex.match(f)
-        if match is not None:
-            pid = int(match.group(1))
-            if not psutil.pid_exists(pid):
-                os.remove(f)
-
-
 def qt_message_handler(msg_type, msg_log_context, msg_string):
     """
     Qt warning messages are intercepted by this handler.

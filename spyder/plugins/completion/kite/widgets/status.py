@@ -39,7 +39,7 @@ class KiteStatusWidget(StatusBarWidget):
 
     def set_value(self, value):
         """Return Kite completions state."""
-        kite_enabled = self.plugin.get_option('enable')
+        kite_enabled = self.plugin.get_conf_option('enable')
         is_installing = self.plugin.is_installing()
         cancelled_or_errored = self.plugin.installation_cancelled_or_errored()
 

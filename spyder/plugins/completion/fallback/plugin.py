@@ -6,63 +6,40 @@
 
 """
 Fallback completion plugin.
-
-Wraps FallbackActor to provide compatibility with SpyderCompletionPlugin API.
 """
 
-# Standard library imports
-import logging
+# Third party imports
+from qtpy.QtGui import QIcon
 
 # Local imports
-from spyder.plugins.completion.manager.api import SpyderCompletionPlugin
-from spyder.plugins.completion.fallback.actor import FallbackActor
+from spyder.api.plugins import Plugins, SpyderPluginV2
+from spyder.api.translations import get_translation
+from spyder.plugins.completion.fallback.provider import FallbackProvider
 
 
-logger = logging.getLogger(__name__)
+# Localization
+_ = get_translation("spyder")
 
 
-class FallbackPlugin(SpyderCompletionPlugin):
+class FallbackPlugin(SpyderPluginV2):
+    NAME = FallbackProvider.ID
+    REQUIRES = [Plugins.CompletionManager]
+    OPTIONAL = []
     CONF_SECTION = 'fallback-completions'
     CONF_FILE = False
-    COMPLETION_CLIENT_NAME = 'fallback'
 
-    def __init__(self, parent):
-        SpyderCompletionPlugin.__init__(self, parent)
-        self.fallback_actor = FallbackActor(self)
-        self.fallback_actor.sig_fallback_ready.connect(
-            lambda: self.sig_plugin_ready.emit(self.COMPLETION_CLIENT_NAME))
-        self.fallback_actor.sig_set_tokens.connect(
-            lambda _id, resp: self.sig_response_ready.emit(
-                self.COMPLETION_CLIENT_NAME, _id, resp))
-        self.started = False
-        self.requests = {}
-        self.update_configuration()
+    # --- SpyderPluginV2 API
+    #  -----------------------------------------------------------------------
+    def get_name(self):
+        return _('Fallback completions')
 
-    def start_client(self, language):
-        return self.started
+    def get_description(self):
+        return _('Fallback completions')
 
-    def start(self):
-        if not self.started and self.enabled:
-            self.fallback_actor.start()
-            self.started = True
+    def get_icon(self):
+        return QIcon()
 
-    def shutdown(self):
-        if self.started:
-            self.fallback_actor.stop()
-
-    def send_request(self, language, req_type, req, req_id=None):
-        if not self.enabled:
-            return
-
-        request = {
-            'type': req_type,
-            'file': req['file'],
-            'id': req_id,
-            'msg': req
-        }
-        req['language'] = language
-        self.fallback_actor.sig_mailbox.emit(request)
-
-    def update_configuration(self):
-        self.enabled = self.get_option('enable')
-        self.start()
+    def register(self):
+        completion_manager = self.get_plugin(Plugins.CompletionManager)
+        completion_manager.register_completion_provider(
+            FallbackProvider(self))

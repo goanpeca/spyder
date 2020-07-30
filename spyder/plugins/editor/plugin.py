@@ -313,7 +313,8 @@ class Editor(SpyderPluginWidget):
         language = options['language']
         codeeditor = options['codeeditor']
 
-        status = self.main.completions.start_client(language.lower())
+        status = self.main.completions.start_provider_clients(
+            language.lower())
         self.main.completions.register_file(
             language.lower(), filename, codeeditor)
         if status:
@@ -363,10 +364,10 @@ class Editor(SpyderPluginWidget):
             request, params['file']))
         self.main.completions.send_request(language, request, params)
 
+    # FIXME: Decouple
     def kite_completions_file_status(self):
         """Connect open_file_update to Kite's status."""
-        self.open_file_update.connect(
-            self.main.completions.get_client('kite').send_status_request)
+        self.open_file_update.connect(self.main.kite.send_status_request)
 
     #------ SpyderPluginWidget API ---------------------------------------------
     def get_plugin_title(self):

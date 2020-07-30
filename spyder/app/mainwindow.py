@@ -161,8 +161,8 @@ else:
 #==============================================================================
 from spyder import (__version__, __project_url__, __forum_url__,
                     __trouble_url__, __website_url__, get_versions)
-from spyder.app.utils import (get_python_doc_path, delete_lsp_log_files,
-                              qt_message_handler, setup_logging)
+from spyder.app.utils import (get_python_doc_path, qt_message_handler,
+                              setup_logging)
 from spyder.config.base import (get_conf_path, get_module_source_path, STDERR,
                                 get_debug_level, MAC_APP_NAME, get_home_dir,
                                 running_in_mac_app, get_module_path,
@@ -1048,20 +1048,9 @@ class MainWindow(QMainWindow):
                             "(i.e. for all sessions)"),
                     triggered=self.win_env)
             self.tools_menu_actions.append(winenv_action)
-        from spyder.plugins.completion.kite.utils.install import (
-            check_if_kite_installed)
-        is_kite_installed, kite_path = check_if_kite_installed()
-        if not is_kite_installed:
-            install_kite_action = create_action(
-                self, _("Install Kite completion engine"),
-                icon=get_icon('kite', adjust_for_interface=True),
-                triggered=self.show_kite_installation)
-            self.tools_menu_actions.append(install_kite_action)
+
         self.tools_menu_actions += [MENU_SEPARATOR, reset_spyder_action]
-        if get_debug_level() >= 3:
-            self.menu_lsp_logs = QMenu(_("LSP logs"))
-            self.menu_lsp_logs.aboutToShow.connect(self.update_lsp_logs)
-            self.tools_menu_actions += [self.menu_lsp_logs]
+
         # External Tools submenu
         self.external_tools_menu = QMenu(_("External Tools"))
         self.external_tools_menu_actions = []
@@ -1177,7 +1166,6 @@ class MainWindow(QMainWindow):
         self.register_plugin(self.console)
 
         # TODO: Load and register the rest of the plugins using new API
-
         # Run plugin
         from spyder.plugins.run.plugin import Run
         self.run = Run(self, configuration=CONF)
@@ -1188,10 +1176,26 @@ class MainWindow(QMainWindow):
         self.appearance = Appearance(self, configuration=CONF)
         self.register_plugin(self.appearance)
 
-        # Code completion client initialization
-        self.set_splash(_("Starting code completion manager..."))
+        # Code completion manager
         from spyder.plugins.completion.manager.plugin import CompletionManager
-        self.completions = CompletionManager(self)
+        self.completions = CompletionManager(self, configuration=CONF)
+        self.register_plugin(self.completions)
+
+        # Language server completion
+        from spyder.plugins.completion.languageserver.plugin import (
+            LanguageServerPlugin)
+        self.languageserver = LanguageServerPlugin(self, configuration=CONF)
+        self.register_plugin(self.languageserver)
+
+        # Fallback completion
+        from spyder.plugins.completion.fallback.plugin import FallbackPlugin
+        self.fallback = FallbackPlugin(self, configuration=CONF)
+        self.register_plugin(self.fallback)
+
+        # Kite completion
+        from spyder.plugins.completion.kite.plugin import KitePlugin
+        self.kite = KitePlugin(self, configuration=CONF)
+        self.register_plugin(self.kite)
 
         # Outline explorer widget
         if CONF.get('outline_explorer', 'enable'):
@@ -1213,11 +1217,6 @@ class MainWindow(QMainWindow):
         self.editor = Editor(self)
         self.editor.register_plugin()
         self.add_plugin(self.editor)
-
-        # Start code completion client
-        self.set_splash(_("Launching code completion client for Python..."))
-        self.completions.start()
-        self.completions.start_client(language='python')
 
         # Populating file menu entries
         quit_action = create_action(self, _("&Quit"),
@@ -1352,11 +1351,8 @@ class MainWindow(QMainWindow):
             try:
                 plugin = mod.PLUGIN_CLASS(self)
                 if plugin.check_compatibility()[0]:
-                    if hasattr(plugin, 'COMPLETION_CLIENT_NAME'):
-                        self.completions.register_completion_plugin(plugin)
-                    else:
-                        self.thirdparty_plugins.append(plugin)
-                        plugin.register_plugin()
+                    self.thirdparty_plugins.append(plugin)
+                    plugin.register_plugin()
 
                     # Add to dependencies dialog
                     module = mod.__name__
@@ -1660,25 +1656,17 @@ class MainWindow(QMainWindow):
                         lambda menu=menu: set_menu_icons(menu, False))
                     menu.aboutToShow.connect(self.hide_options_menus)
 
-    def update_lsp_logs(self):
-        """Create an action for each lsp log file."""
-        self.menu_lsp_logs.clear()
-        lsp_logs = []
-        regex = re.compile(r'.*_.*_(\d+)[.]log')
-        files = glob.glob(osp.join(get_conf_path('lsp_logs'), '*.log'))
-        for f in files:
-            action = create_action(self, f, triggered=self.editor.load)
-            action.setData(f)
-            lsp_logs.append(action)
-        add_actions(self.menu_lsp_logs, lsp_logs)
-
     def post_visible_setup(self):
         """Actions to be performed only after the main window's `show` method
         was triggered"""
         self.restore_scrollbar_position.emit()
 
-        logger.info('Deleting previous Spyder instance LSP logs...')
-        delete_lsp_log_files()
+        # New API
+        for plugin_name, plugin_instance in self._PLUGINS.items():
+            try:
+                plugin_instance.on_mainwindow_visible()
+            except AttributeError:
+                pass
 
         # Workaround for spyder-ide/spyder#880.
         # QDockWidget objects are not painted if restored as floating
@@ -1748,6 +1736,7 @@ class MainWindow(QMainWindow):
             if self.projects.get_active_project() is None:
                 self.editor.setup_open_files(close_previous_files=False)
 
+        # FIXME: move to kite plugin
         # Connect Editor to Kite completions plugin status
         self.editor.kite_completions_file_status()
 
@@ -2897,19 +2886,17 @@ class MainWindow(QMainWindow):
         if CONF.get('main', 'single_instance') and self.open_files_server:
             self.open_files_server.close()
 
-        if not self.completions.closing_plugin(cancelable):
-            return False
-
-        for plugin in (self.widgetlist + self.thirdparty_plugins):
-            # New API
+        # New API
+        for __, plugin in reversed(self._PLUGINS.items()):
             try:
                 plugin.close_window()
                 if not plugin.on_close(cancelable):
                     return False
-            except AttributeError:
+            except Exception:
                 pass
 
-            # Old API
+        # Old API
+        for plugin in (self.widgetlist + self.thirdparty_plugins):
             try:
                 plugin._close_window()
                 if not plugin.closing_plugin(cancelable):
@@ -2927,8 +2914,6 @@ class MainWindow(QMainWindow):
 
         if self.toolbars_visible:
             self.save_visible_toolbars()
-
-        self.completions.shutdown()
 
         self.already_closed = True
         return True
@@ -3393,12 +3378,7 @@ class MainWindow(QMainWindow):
         """Show Windows current user environment variables."""
         self.dialog_manager.show(WinUserEnvDialog(self))
 
-    # --- Kite
-    def show_kite_installation(self):
-        """Show installation dialog for Kite."""
-        self.completions.get_client('kite').show_installation_dialog()
-
-    #---- Preferences
+    # --- Preferences
     def apply_settings(self):
         """Apply settings changed in 'Preferences' dialog box"""
         qapp = QApplication.instance()
@@ -3495,20 +3475,12 @@ class MainWindow(QMainWindow):
                 widget.initialize()
                 dlg.add_page(widget)
 
-            widget = self.completions._create_configwidget(dlg, self)
-            if widget is not None:
-                dlg.add_page(widget)
-
-            for completion_plugin in self.completions.clients.values():
-                completion_plugin = completion_plugin['plugin']
-                widget = completion_plugin._create_configwidget(dlg, self)
-                if widget is not None:
-                    dlg.add_page(widget)
-
-            for plugin in [self.appearance, self.workingdirectory,
-                           self.editor, self.projects, self.ipyconsole,
-                           self.historylog, self.help, self.variableexplorer,
-                           self.onlinehelp, self.explorer, self.findinfiles
+            for plugin in [self.appearance, self.completions,
+                           self.languageserver, self.kite, self.fallback,
+                           self.workingdirectory, self.editor, self.projects,
+                           self.ipyconsole, self.historylog, self.help,
+                           self.variableexplorer, self.onlinehelp,
+                           self.explorer, self.findinfiles
                            ] + self.thirdparty_plugins:
                 if plugin is not None:
                     # New API

@@ -187,7 +187,7 @@ class Projects(SpyderPluginWidget):
         self.sig_project_loaded.connect(
             lambda v: self.main.set_window_title())
         self.sig_project_loaded.connect(
-            functools.partial(lspmgr.project_path_update,
+            functools.partial(lspmgr.update_project_path,
                               update_kind=WorkspaceUpdateKind.ADDITION))
         self.sig_project_loaded.connect(
             lambda v: self.main.editor.setup_open_files())
@@ -198,7 +198,7 @@ class Projects(SpyderPluginWidget):
         self.sig_project_closed.connect(
             lambda v: self.main.set_window_title())
         self.sig_project_closed.connect(
-            functools.partial(lspmgr.project_path_update,
+            functools.partial(lspmgr.update_project_path,
                               update_kind=WorkspaceUpdateKind.DELETION))
         self.sig_project_closed.connect(
             lambda v: self.main.editor.setup_open_files())

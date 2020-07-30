@@ -28,7 +28,8 @@ from spyder.config.manager import CONF
 from spyder.config.gui import get_font, is_dark_interface
 from spyder.plugins.completion.manager.api import LSP_LANGUAGES
 from spyder.plugins.editor.widgets.codeeditor import CodeEditor
-from spyder.preferences.configdialog import GeneralConfigPage
+# from spyder.preferences.configdialog import GeneralConfigPage
+from spyder.api.preferences import PluginConfigPage
 from spyder.utils import icon_manager as ima
 from spyder.utils.misc import check_connection_port
 from spyder.utils.programs import find_program
@@ -693,7 +694,7 @@ class LSPServerTable(QTableView):
         self.show_editor()
 
 
-class LanguageServerConfigPage(GeneralConfigPage):
+class LanguageServerConfigPage(PluginConfigPage):
     """Language Server Protocol manager preferences."""
     CONF_SECTION = 'lsp-server'
     NAME = _('Completion and linting')
@@ -1334,7 +1335,7 @@ class LanguageServerConfigPage(GeneralConfigPage):
                 self.report_no_external_server(host, port, 'python')
                 return False
 
-        return super(GeneralConfigPage, self).is_valid()
+        return super().is_valid()
 
     def apply_settings(self, options):
         # Check regex of code style options

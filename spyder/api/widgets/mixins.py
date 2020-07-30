@@ -21,9 +21,60 @@ from qtpy.QtWidgets import QMenu, QSizePolicy, QToolBar, QWidget
 # Local imports
 from spyder.api.exceptions import SpyderAPIError
 from spyder.api.widgets.menus import SpyderMenu
+from spyder.config.user import NoDefault
 from spyder.utils import icon_manager as ima
 from spyder.utils.qthelpers import (add_actions, create_action,
                                     create_toolbutton)
+
+
+class BaseOptionsMixin:
+    """
+    FIXME:
+    """
+
+    # --- Configuration access
+    # ------------------------------------------------------------------------
+    def _check_options_interface(self):
+        from spyder.api.plugins import SpyderPluginV2
+        plugin = getattr(self, "plugin", None)
+        if plugin is None:
+            raise SpyderAPIError(
+                "A `plugin` instance variable was not found!")
+
+        if not isinstance(plugin, SpyderPluginV2):
+            raise SpyderAPIError(
+                "`plugin` instance must be a subclass of SpyderPluginV2!")
+
+    def get_option(self, option):
+        """
+        FIXME:
+
+        Parameters
+        ----------
+        option: str
+            FIXME:
+
+        Returns
+        -------
+        object
+            FIXME:
+        """
+        self._check_options_interface()
+        return self.plugin.get_conf_option(option)
+
+    def set_option(self, option, value):
+        """
+        FIXME:
+
+        Parameters
+        ----------
+        option: str
+            FIXME:
+        value: object
+            FIXME:
+        """
+        self._check_options_interface()
+        return self.plugin.set_conf_option(option, value)
 
 
 class SpyderOptionMixin:
