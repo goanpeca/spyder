@@ -575,6 +575,7 @@ class Plugins:
     """
     Convenience class for accessing Spyder internal plugins.
     """
+    All = "all"
     Breakpoints = 'breakpoints'
     CodeAnalysis = 'code_analysis'
     CodeCompletion = 'code_completion'
@@ -965,9 +966,9 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
                     # TODO: Remove when migration is done, move to logger.
                     # Needed to check how the options API needs to cover
                     # options from all plugins
-                    print('\nspyder.api.plugins.options_from_conf\n'
-                          'Warning: option "{}" not found in section "{}" '
-                          'of configuration!'.format(option, self.NAME))
+                    # print('\nspyder.api.plugins.options_from_conf\n'
+                    #       'Warning: option "{}" not found in section "{}" '
+                    #       'of configuration!'.format(option, self.NAME))
 
                     # Currently when the preferences dialog is used, a set of
                     # changed options is passed.
@@ -1291,6 +1292,13 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
         """
         pass
 
+    def before_mainwindow_visible(self):
+        """
+        Actions to be performed after setup but before the main window's has
+        been shown.
+        """
+        pass
+
     def on_mainwindow_visible(self):
         """
         Actions to be performed after the main window's has been shown.
@@ -1368,7 +1376,7 @@ class SpyderPluginV2(QObject, SpyderActionMixin, SpyderOptionMixin):
             ApplicationMenus.Consoles: self._main.consoles_menu_actions,
             ApplicationMenus.Projects: self._main.projects_menu_actions,
             ApplicationMenus.Tools: self._main.tools_menu_actions,
-            # ApplicationMenus.View: self._main.view_menu_actions,
+            ApplicationMenus.View: self._main.view_menu_actions,
             ApplicationMenus.Help: self._main.help_menu_actions,
         }
         actions = app_menu_actions[menu.name]

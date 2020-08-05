@@ -651,6 +651,7 @@ class MainWindow(QMainWindow):
         self.variableexplorer = None
         self.plots = None
         self.findinfiles = None
+        self.layouts = None
         self.thirdparty_plugins = []
 
         # Tour  # TODO: Should I consider it a plugin?? or?
@@ -679,10 +680,10 @@ class MainWindow(QMainWindow):
         self._report_dlg = None
 
         # Quick Layouts and Dialogs
-        from spyder.preferences.layoutdialog import (LayoutSaveDialog,
-                                                 LayoutSettingsDialog)
-        self.dialog_layout_save = LayoutSaveDialog
-        self.dialog_layout_settings = LayoutSettingsDialog
+        # from spyder.preferences.layoutdialog import (LayoutSaveDialog,
+        #                                          LayoutSettingsDialog)
+        # self.dialog_layout_save = LayoutSaveDialog
+        # self.dialog_layout_settings = LayoutSettingsDialog
 
         # Actions
         self.lock_interface_action = None
@@ -720,6 +721,7 @@ class MainWindow(QMainWindow):
         # otherwise the external tools menu is lost after leaving setup method
         self.external_tools_menu_actions = []
         self.view_menu = None
+        self.view_menu_actions = []
         self.plugins_menu = None
         self.plugins_menu_actions = []
         self.toolbars_menu = None
@@ -908,19 +910,7 @@ class MainWindow(QMainWindow):
             context=Qt.ApplicationShortcut)
         self.register_shortcut(self.lock_interface_action, "_",
                                "Lock unlock panes")
-        # custom layouts shortcuts
-        self.toggle_next_layout_action = create_action(self,
-                                    _("Use next layout"),
-                                    triggered=self.toggle_next_layout,
-                                    context=Qt.ApplicationShortcut)
-        self.toggle_previous_layout_action = create_action(self,
-                                    _("Use previous layout"),
-                                    triggered=self.toggle_previous_layout,
-                                    context=Qt.ApplicationShortcut)
-        self.register_shortcut(self.toggle_next_layout_action, "_",
-                               "Use next layout")
-        self.register_shortcut(self.toggle_previous_layout_action, "_",
-                               "Use previous layout")
+
         # Switcher shortcuts
         self.file_switcher_action = create_action(
                                     self,
@@ -1127,26 +1117,29 @@ class MainWindow(QMainWindow):
         if gdgq_act:
             self.external_tools_menu_actions += [None] + gdgq_act
 
-        # Maximize current plugin
-        self.maximize_action = create_action(self, '',
-                                        triggered=self.maximize_dockwidget,
-                                        context=Qt.ApplicationShortcut)
-        self.register_shortcut(self.maximize_action, "_", "Maximize pane")
-        self.__update_maximize_action()
+        # # Maximize current plugin
+        # self.maximize_action = create_action(self, '',
+        #                                 triggered=self.maximize_dockwidget,
+        #                                 context=Qt.ApplicationShortcut)
+        # self.register_shortcut(self.maximize_action, "_", "Maximize pane")
+        # self.__update_maximize_action()
 
-        # Fullscreen mode
-        self.fullscreen_action = create_action(self,
-                                        _("Fullscreen mode"),
-                                        triggered=self.toggle_fullscreen,
-                                        context=Qt.ApplicationShortcut)
-        self.register_shortcut(self.fullscreen_action, "_",
-                               "Fullscreen mode", add_shortcut_to_tip=True)
+        # # Fullscreen mode
+        # self.fullscreen_action = create_action(self,
+        #                                 _("Fullscreen mode"),
+        #                                 triggered=self.toggle_fullscreen,
+        #                                 context=Qt.ApplicationShortcut)
+        # self.register_shortcut(self.fullscreen_action, "_",
+        #                        "Fullscreen mode", add_shortcut_to_tip=True)
 
         # Main toolbar
-        self.main_toolbar_actions = [self.maximize_action,
-                                     self.fullscreen_action,
-                                     None,
-                                     prefs_action, spyder_path_action]
+        self.main_toolbar_actions = [
+            # self.maximize_action,
+            # self.fullscreen_action,
+            None,
+            prefs_action,
+            spyder_path_action,
+        ]
 
         self.main_toolbar = self.create_toolbar(_("Main toolbar"),
                                                 "main_toolbar")
@@ -1177,6 +1170,11 @@ class MainWindow(QMainWindow):
         self.register_plugin(self.console)
 
         # TODO: Load and register the rest of the plugins using new API
+
+        # Layout plugin
+        from spyder.plugins.layout.plugin import Layout
+        self.layouts = Layout(self, configuration=CONF)
+        self.register_plugin(self.layouts)
 
         # Run plugin
         from spyder.plugins.run.plugin import Run
@@ -1546,34 +1544,45 @@ class MainWindow(QMainWindow):
         self.plugins_menu = QMenu(_("Panes"), self)
 
         self.toolbars_menu = QMenu(_("Toolbars"), self)
-        self.quick_layout_menu = QMenu(_("Window layouts"), self)
-        self.quick_layout_set_menu()
+        # self.quick_layout_menu = QMenu(_("Window layouts"), self)
+        # self.quick_layout_set_menu()
 
         self.view_menu.addMenu(self.plugins_menu)  # Panes
-        add_actions(self.view_menu, (self.lock_interface_action,
-                                     self.close_dockwidget_action,
-                                     self.maximize_action,
-                                     MENU_SEPARATOR))
-        self.show_toolbars_action = create_action(self,
-                                _("Show toolbars"),
-                                triggered=self.show_toolbars,
-                                context=Qt.ApplicationShortcut)
-        self.register_shortcut(self.show_toolbars_action, "_",
-                               "Show toolbars")
-        self.view_menu.addMenu(self.toolbars_menu)
-        self.view_menu.addAction(self.show_toolbars_action)
-        add_actions(self.view_menu, (MENU_SEPARATOR,
-                                     self.quick_layout_menu,
-                                     self.toggle_previous_layout_action,
-                                     self.toggle_next_layout_action,
-                                     MENU_SEPARATOR,
-                                     self.fullscreen_action))
+        self.view_menu_actions += [self.lock_interface_action,
+                                   self.close_dockwidget_action,
+                                   self.maximize_action,
+                                   MENU_SEPARATOR]
+        self.show_toolbars_action = create_action(
+            self,
+            _("Show toolbars"),
+            triggered=self.show_toolbars,
+            context=Qt.ApplicationShortcut,
+        )
+        self.register_shortcut(
+            self.show_toolbars_action,
+            "_",
+            "Show toolbars",
+        )
+        self.view_menu_actions.append(self.toolbars_menu)
+        self.view_menu_actions.append(self.show_toolbars_action)
+        # self.view_menu.addMenu(self.toolbars_menu)
+        # self.view_menu.addAction(self.show_toolbars_action)
+        
+        self.view_menu_actions += [
+            MENU_SEPARATOR,
+            #  self.quick_layout_menu,
+            # self.toggle_previous_layout_action,
+            # self.toggle_next_layout_action,
+            # MENU_SEPARATOR,
+            self.fullscreen_action,
+        ]
+
         if set_attached_console_visible is not None:
             cmd_act = create_action(self,
                                 _("Attached console window (debugging)"),
                                 toggled=set_attached_console_visible)
             cmd_act.setChecked(is_attached_console_visible())
-            add_actions(self.view_menu, (MENU_SEPARATOR, cmd_act))
+            self.view_menu_actions += [MENU_SEPARATOR, cmd_act]
 
         # Adding external tools action to "Tools" menu
         if self.external_tools_menu_actions:
@@ -1594,6 +1603,7 @@ class MainWindow(QMainWindow):
         add_actions(self.external_tools_menu,
                     self.external_tools_menu_actions)
         add_actions(self.help_menu, self.help_menu_actions)
+        add_actions(self.view_menu, self.view_menu_actions)
 
         add_actions(self.main_toolbar, self.main_toolbar_actions)
         add_actions(self.file_toolbar, self.file_toolbar_actions)
@@ -1609,35 +1619,6 @@ class MainWindow(QMainWindow):
         # Emitting the signal notifying plugins that main window menu and
         # toolbar actions are all defined:
         self.all_actions_defined.emit()
-
-        # Window set-up
-        logger.info("Setting up window...")
-        self.setup_layout(default=False)
-
-        if self.splash is not None:
-            self.splash.hide()
-
-        # Enabling tear off for all menus except help menu
-        if CONF.get('main', 'tear_off_menus'):
-            for child in self.menuBar().children():
-                if isinstance(child, QMenu) and child != self.help_menu:
-                    child.setTearOffEnabled(True)
-
-        # Menu about to show
-        for child in self.menuBar().children():
-            if isinstance(child, QMenu):
-                try:
-                    child.aboutToShow.connect(self.update_edit_menu)
-                    child.aboutToShow.connect(self.update_search_menu)
-                except TypeError:
-                    pass
-
-        logger.info("*** End of MainWindow setup ***")
-        self.is_starting_up = False
-
-        for plugin, plugin_instance in self._EXTERNAL_PLUGINS.items():
-            self.tabify_plugin(plugin_instance)
-            plugin_instance.toggle_view(False)
 
     def setup_menus(self):
         """Setup menus."""
@@ -1671,6 +1652,45 @@ class MainWindow(QMainWindow):
             action.setData(f)
             lsp_logs.append(action)
         add_actions(self.menu_lsp_logs, lsp_logs)
+
+    def pre_visible_setup(self):
+        """
+        Actions to be performed afthe the main window setup, but before the
+        main window becomes visible.
+        """
+        logger.info("Setting up window...")
+        for plugin_id, plugin_instance  in self._PLUGINS.items():
+            try:
+                plugin_instance.before_mainwindow_visible()
+            except AttributeError:
+                pass
+
+        if self.splash is not None:
+            self.splash.hide()
+
+        # Enabling tear off for all menus except help menu
+        if CONF.get('main', 'tear_off_menus'):
+            for child in self.menuBar().children():
+                if isinstance(child, QMenu) and child != self.help_menu:
+                    child.setTearOffEnabled(True)
+
+        # Menu about to show
+        for child in self.menuBar().children():
+            if isinstance(child, QMenu):
+                try:
+                    child.aboutToShow.connect(self.update_edit_menu)
+                    child.aboutToShow.connect(self.update_search_menu)
+                except TypeError:
+                    pass
+
+        logger.info("*** End of MainWindow setup ***")
+        self.is_starting_up = False
+
+        # FIXME:!
+        for plugin, plugin_instance in self._EXTERNAL_PLUGINS.items():
+            self.tabify_plugin(plugin_instance)
+            plugin_instance.toggle_view(False)
+
 
     def post_visible_setup(self):
         """Actions to be performed only after the main window's `show` method
@@ -1911,626 +1931,11 @@ class MainWindow(QMainWindow):
                   "issue."
                   ) % missing_deps, QMessageBox.Ok)
 
-    def load_window_settings(self, prefix, default=False, section='main'):
-        """Load window layout settings from userconfig-based configuration
-        with *prefix*, under *section*
-        default: if True, do not restore inner layout"""
-        get_func = CONF.get_default if default else CONF.get
-        window_size = get_func(section, prefix+'size')
-        prefs_dialog_size = get_func(section, prefix+'prefs_dialog_size')
-        if default:
-            hexstate = None
-        else:
-            hexstate = get_func(section, prefix+'state', None)
-
-        pos = get_func(section, prefix+'position')
-
-        # It's necessary to verify if the window/position value is valid
-        # with the current screen. See spyder-ide/spyder#3748.
-        width = pos[0]
-        height = pos[1]
-        screen_shape = QApplication.desktop().geometry()
-        current_width = screen_shape.width()
-        current_height = screen_shape.height()
-        if current_width < width or current_height < height:
-            pos = CONF.get_default(section, prefix+'position')
-
-        is_maximized =  get_func(section, prefix+'is_maximized')
-        is_fullscreen = get_func(section, prefix+'is_fullscreen')
-        return hexstate, window_size, prefs_dialog_size, pos, is_maximized, \
-               is_fullscreen
-
-    def get_window_settings(self):
-        """Return current window settings
-        Symetric to the 'set_window_settings' setter"""
-        window_size = (self.window_size.width(), self.window_size.height())
-        is_fullscreen = self.isFullScreen()
-        if is_fullscreen:
-            is_maximized = self.maximized_flag
-        else:
-            is_maximized = self.isMaximized()
-        pos = (self.window_position.x(), self.window_position.y())
-        prefs_dialog_size = (self.prefs_dialog_size.width(),
-                             self.prefs_dialog_size.height())
-        hexstate = qbytearray_to_str(self.saveState())
-        return (hexstate, window_size, prefs_dialog_size, pos, is_maximized,
-                is_fullscreen)
-
-    def set_window_settings(self, hexstate, window_size, prefs_dialog_size,
-                            pos, is_maximized, is_fullscreen):
-        """Set window settings
-        Symetric to the 'get_window_settings' accessor"""
-        self.setUpdatesEnabled(False)
-        self.window_size = QSize(window_size[0], window_size[1]) # width,height
-        self.prefs_dialog_size = QSize(prefs_dialog_size[0],
-                                       prefs_dialog_size[1]) # width,height
-        self.window_position = QPoint(pos[0], pos[1]) # x,y
-        self.setWindowState(Qt.WindowNoState)
-        self.resize(self.window_size)
-        self.move(self.window_position)
-
-        # Window layout
-        if hexstate:
-            self.restoreState( QByteArray().fromHex(
-                    str(hexstate).encode('utf-8')) )
-            # Workaround for spyder-ide/spyder#880.
-            # QDockWidget objects are not painted if restored as floating
-            # windows, so we must dock them before showing the mainwindow.
-            for widget in self.children():
-                if isinstance(widget, QDockWidget) and widget.isFloating():
-                    self.floating_dockwidgets.append(widget)
-                    widget.setFloating(False)
-
-        # Is fullscreen?
-        if is_fullscreen:
-            self.setWindowState(Qt.WindowFullScreen)
-        self.__update_fullscreen_action()
-
-        # Is maximized?
-        if is_fullscreen:
-            self.maximized_flag = is_maximized
-        elif is_maximized:
-            self.setWindowState(Qt.WindowMaximized)
-        self.setUpdatesEnabled(True)
-
-    def save_current_window_settings(self, prefix, section='main',
-                                     none_state=False):
-        """Save current window settings with *prefix* in
-        the userconfig-based configuration, under *section*"""
-        win_size = self.window_size
-        prefs_size = self.prefs_dialog_size
-
-        CONF.set(section, prefix+'size', (win_size.width(), win_size.height()))
-        CONF.set(section, prefix+'prefs_dialog_size',
-                 (prefs_size.width(), prefs_size.height()))
-        CONF.set(section, prefix+'is_maximized', self.isMaximized())
-        CONF.set(section, prefix+'is_fullscreen', self.isFullScreen())
-        pos = self.window_position
-        CONF.set(section, prefix+'position', (pos.x(), pos.y()))
-        self.maximize_dockwidget(restore=True)# Restore non-maximized layout
-        if none_state:
-            CONF.set(section, prefix + 'state', None)
-        else:
-            qba = self.saveState()
-            CONF.set(section, prefix + 'state', qbytearray_to_str(qba))
-        CONF.set(section, prefix+'statusbar',
-                    not self.statusBar().isHidden())
-
     def tabify_plugins(self, first, second):
         """Tabify plugin dockwigdets"""
         self.tabifyDockWidget(first.dockwidget, second.dockwidget)
 
     # --- Layouts
-    def setup_layout(self, default=False):
-        """Setup window layout"""
-        prefix = 'window' + '/'
-        settings = self.load_window_settings(prefix, default)
-        hexstate = settings[0]
-
-        self.first_spyder_run = False
-        if hexstate is None:
-            # First Spyder execution:
-            self.setWindowState(Qt.WindowMaximized)
-            self.first_spyder_run = True
-            self.setup_default_layouts('default', settings)
-
-            # Now that the initial setup is done, copy the window settings,
-            # except for the hexstate in the quick layouts sections for the
-            # default layouts.
-            # Order and name of the default layouts is found in config.py
-            section = 'quick_layouts'
-            get_func = CONF.get_default if default else CONF.get
-            order = get_func(section, 'order')
-
-            # restore the original defaults if reset layouts is called
-            if default:
-                CONF.set(section, 'active', order)
-                CONF.set(section, 'order', order)
-                CONF.set(section, 'names', order)
-
-            for index, name, in enumerate(order):
-                prefix = 'layout_{0}/'.format(index)
-                self.save_current_window_settings(prefix, section,
-                                                  none_state=True)
-
-            # store the initial layout as the default in spyder
-            prefix = 'layout_default/'
-            section = 'quick_layouts'
-            self.save_current_window_settings(prefix, section, none_state=True)
-            self.current_quick_layout = 'default'
-
-            # Regenerate menu
-            self.quick_layout_set_menu()
-
-        self.set_window_settings(*settings)
-
-        # Old API
-        for plugin in (self.widgetlist + self.thirdparty_plugins):
-            try:
-                plugin._initialize_plugin_in_mainwindow_layout()
-            except AttributeError:
-                pass
-            except Exception as error:
-                print("%s: %s" % (plugin, str(error)), file=STDERR)
-                traceback.print_exc(file=STDERR)
-
-    def setup_default_layouts(self, index, settings):
-        """Setup default layouts when run for the first time."""
-        self.setUpdatesEnabled(False)
-
-        first_spyder_run = bool(self.first_spyder_run)  # Store copy
-
-        if first_spyder_run:
-            self.set_window_settings(*settings)
-        else:
-            if self.last_plugin:
-                if self.last_plugin._ismaximized:
-                    self.maximize_dockwidget(restore=True)
-
-            if not (self.isMaximized() or self.maximized_flag):
-                self.showMaximized()
-
-            min_width = self.minimumWidth()
-            max_width = self.maximumWidth()
-            base_width = self.width()
-            self.setFixedWidth(base_width)
-
-        # IMPORTANT: order has to be the same as defined in the config file
-        MATLAB, RSTUDIO, VERTICAL, HORIZONTAL = range(self.DEFAULT_LAYOUTS)
-
-        # Define widgets locally
-        editor = self.editor
-        console_ipy = self.ipyconsole
-        console_int = self.console
-        outline = self.outlineexplorer
-        explorer_project = self.projects
-        explorer_file = self.explorer
-        explorer_variable = self.variableexplorer
-        plots = self.plots
-        history = self.historylog
-        finder = self.findinfiles
-        help_plugin = self.help
-        helper = self.onlinehelp
-        plugins = self.thirdparty_plugins
-
-        # Stored for tests
-        global_hidden_widgets = [finder, console_int, explorer_project,
-                                 helper] + plugins
-        global_hidden_toolbars = [self.source_toolbar, self.edit_toolbar,
-                                  self.search_toolbar]
-        # Layout definition
-        # --------------------------------------------------------------------
-        # Layouts are organized by columns, each column is organized by rows.
-        # Widths have to accumulate to 100 (except if hidden), height per
-        # column has to accumulate to 100 as well
-
-        # Spyder Default Initial Layout
-        s_layout = {
-            'widgets': [
-                # Column 0
-                [[explorer_project]],
-                # Column 1
-                [[editor]],
-                # Column 2
-                [[outline]],
-                # Column 3
-                [[help_plugin, explorer_variable, plots,     # Row 0
-                  helper, explorer_file, finder] + plugins,
-                 [console_int, console_ipy, history]]        # Row 1
-                ],
-            'width fraction': [15,            # Column 0 width
-                               45,            # Column 1 width
-                                5,            # Column 2 width
-                               45],           # Column 3 width
-            'height fraction': [[100],          # Column 0, row heights
-                                [100],          # Column 1, row heights
-                                [100],          # Column 2, row heights
-                                [46, 54]],  # Column 3, row heights
-            'hidden widgets': [outline] + global_hidden_widgets,
-            'hidden toolbars': [],
-        }
-
-        # RStudio
-        r_layout = {
-            'widgets': [
-                # column 0
-                [[editor],                            # Row 0
-                 [console_ipy, console_int]],         # Row 1
-                # column 1
-                [[explorer_variable, plots, history,  # Row 0
-                  outline, finder] + plugins,
-                 [explorer_file, explorer_project,    # Row 1
-                  help_plugin, helper]]
-                ],
-            'width fraction': [55,            # Column 0 width
-                               45],           # Column 1 width
-            'height fraction': [[55, 45],   # Column 0, row heights
-                                [55, 45]],  # Column 1, row heights
-            'hidden widgets': [outline] + global_hidden_widgets,
-            'hidden toolbars': [],
-        }
-
-        # Matlab
-        m_layout = {
-            'widgets': [
-                # column 0
-                [[explorer_file, explorer_project],
-                 [outline]],
-                # column 1
-                [[editor],
-                 [console_ipy, console_int]],
-                # column 2
-                [[explorer_variable, plots, finder] + plugins,
-                 [history, help_plugin, helper]]
-                ],
-            'width fraction': [10,            # Column 0 width
-                               45,            # Column 1 width
-                               45],           # Column 2 width
-            'height fraction': [[55, 45],   # Column 0, row heights
-                                [55, 45],   # Column 1, row heights
-                                [55, 45]],  # Column 2, row heights
-            'hidden widgets': global_hidden_widgets,
-            'hidden toolbars': [],
-        }
-
-        # Vertically split
-        v_layout = {
-            'widgets': [
-                # column 0
-                [[editor],                                  # Row 0
-                 [console_ipy, console_int, explorer_file,  # Row 1
-                  explorer_project, help_plugin, explorer_variable, plots,
-                  history, outline, finder, helper] + plugins]
-                ],
-            'width fraction': [100],            # Column 0 width
-            'height fraction': [[55, 45]],  # Column 0, row heights
-            'hidden widgets': [outline] + global_hidden_widgets,
-            'hidden toolbars': [],
-        }
-
-        # Horizontally split
-        h_layout = {
-            'widgets': [
-                # column 0
-                [[editor]],                                 # Row 0
-                # column 1
-                [[console_ipy, console_int, explorer_file,  # Row 0
-                  explorer_project, help_plugin, explorer_variable, plots,
-                  history, outline, finder, helper] + plugins]
-                ],
-            'width fraction': [55,      # Column 0 width
-                               45],     # Column 1 width
-            'height fraction': [[100],    # Column 0, row heights
-                                [100]],   # Column 1, row heights
-            'hidden widgets': [outline] + global_hidden_widgets,
-            'hidden toolbars': []
-        }
-
-        # Layout selection
-        layouts = {
-            'default': s_layout,
-            RSTUDIO: r_layout,
-            MATLAB: m_layout,
-            VERTICAL: v_layout,
-            HORIZONTAL: h_layout,
-        }
-
-        layout = layouts[index]
-
-        # Remove None from widgets layout
-        widgets_layout = layout['widgets']
-        widgets_layout_clean = []
-        for column in widgets_layout:
-            clean_col = []
-            for row in column:
-                clean_row = [w for w in row if w is not None]
-                if clean_row:
-                    clean_col.append(clean_row)
-            if clean_col:
-                widgets_layout_clean.append(clean_col)
-
-        # Flatten widgets list
-        widgets = []
-        for column in widgets_layout_clean:
-            for row in column:
-                for widget in row:
-                    widgets.append(widget)
-
-        # We use both directions to ensure proper update when moving from
-        # 'Horizontal Split' to 'Spyder Default'
-        # This also seems to help on random cases where the display seems
-        # 'empty'
-        for direction in (Qt.Vertical, Qt.Horizontal):
-            # Arrange the widgets in one direction
-            for idx in range(len(widgets) - 1):
-                first, second = widgets[idx], widgets[idx+1]
-                if first is not None and second is not None:
-                    self.splitDockWidget(first.dockwidget, second.dockwidget,
-                                         direction)
-
-        # Arrange the widgets in the other direction
-        for column in widgets_layout_clean:
-            for idx in range(len(column) - 1):
-                first_row, second_row = column[idx], column[idx+1]
-                self.splitDockWidget(first_row[0].dockwidget,
-                                     second_row[0].dockwidget,
-                                     Qt.Vertical)
-
-        # Tabify
-        for column in widgets_layout_clean:
-            for row in column:
-                for idx in range(len(row) - 1):
-                    first, second = row[idx], row[idx+1]
-                    self.tabify_plugins(first, second)
-
-                # Raise front widget per row
-                row[0].dockwidget.show()
-                row[0].dockwidget.raise_()
-
-        # Set dockwidget widths
-        width_fractions = layout['width fraction']
-        if len(width_fractions) > 1:
-            _widgets = [col[0][0].dockwidget for col in widgets_layout]
-            self.resizeDocks(_widgets, width_fractions, Qt.Horizontal)
-
-        # Set dockwidget heights
-        height_fractions = layout['height fraction']
-        for idx, column in enumerate(widgets_layout_clean):
-            if len(column) > 1:
-                _widgets = [row[0].dockwidget for row in column]
-                self.resizeDocks(_widgets, height_fractions[idx], Qt.Vertical)
-
-        # Hide toolbars
-        hidden_toolbars = global_hidden_toolbars + layout['hidden toolbars']
-        for toolbar in hidden_toolbars:
-            if toolbar is not None:
-                toolbar.close()
-
-        # Hide widgets
-        hidden_widgets = layout['hidden widgets']
-        for widget in hidden_widgets:
-            if widget is not None:
-                widget.dockwidget.close()
-
-        if first_spyder_run:
-            self.first_spyder_run = False
-        else:
-            self.setMinimumWidth(min_width)
-            self.setMaximumWidth(max_width)
-
-            if not (self.isMaximized() or self.maximized_flag):
-                self.showMaximized()
-
-        self.setUpdatesEnabled(True)
-        self.sig_layout_setup_ready.emit(layout)
-
-        return layout
-
-    @Slot()
-    def toggle_previous_layout(self):
-        """ """
-        self.toggle_layout('previous')
-
-    @Slot()
-    def toggle_next_layout(self):
-        """ """
-        self.toggle_layout('next')
-
-    def toggle_layout(self, direction='next'):
-        """ """
-        get = CONF.get
-        names = get('quick_layouts', 'names')
-        order = get('quick_layouts', 'order')
-        active = get('quick_layouts', 'active')
-
-        if len(active) == 0:
-            return
-
-        layout_index = ['default']
-        for name in order:
-            if name in active:
-                layout_index.append(names.index(name))
-
-        current_layout = self.current_quick_layout
-        dic = {'next': 1, 'previous': -1}
-
-        if current_layout is None:
-            # Start from default
-            current_layout = 'default'
-
-        if current_layout in layout_index:
-            current_index = layout_index.index(current_layout)
-        else:
-            current_index = 0
-
-        new_index = (current_index + dic[direction]) % len(layout_index)
-        self.quick_layout_switch(layout_index[new_index])
-
-    def quick_layout_set_menu(self):
-        """ """
-        get = CONF.get
-        names = get('quick_layouts', 'names')
-        order = get('quick_layouts', 'order')
-        active = get('quick_layouts', 'active')
-
-        ql_actions = []
-
-        ql_actions = [create_action(self, _('Spyder Default Layout'),
-                                    triggered=lambda:
-                                    self.quick_layout_switch('default'))]
-        for name in order:
-            if name in active:
-                index = names.index(name)
-
-                # closure required so lambda works with the default parameter
-                def trigger(i=index, self=self):
-                    return lambda: self.quick_layout_switch(i)
-
-                qli_act = create_action(self, name, triggered=trigger())
-                # closure above replaces the following which stopped working
-                # qli_act = create_action(self, name, triggered=lambda i=index:
-                #     self.quick_layout_switch(i)
-
-                ql_actions += [qli_act]
-
-        self.ql_save = create_action(self, _("Save current layout"),
-                                     triggered=lambda:
-                                     self.quick_layout_save(),
-                                     context=Qt.ApplicationShortcut)
-        self.ql_preferences = create_action(self, _("Layout preferences"),
-                                            triggered=lambda:
-                                            self.quick_layout_settings(),
-                                            context=Qt.ApplicationShortcut)
-        self.ql_reset = create_action(self, _('Reset to spyder default'),
-                                      triggered=self.reset_window_layout)
-
-        self.register_shortcut(self.ql_save, "_", "Save current layout")
-        self.register_shortcut(self.ql_preferences, "_", "Layout preferences")
-
-        ql_actions += [None]
-        ql_actions += [self.ql_save, self.ql_preferences, self.ql_reset]
-
-        self.quick_layout_menu.clear()
-        add_actions(self.quick_layout_menu, ql_actions)
-
-        if len(order) == 0:
-            self.ql_preferences.setEnabled(False)
-        else:
-            self.ql_preferences.setEnabled(True)
-
-    @Slot()
-    def reset_window_layout(self):
-        """Reset window layout to default"""
-        answer = QMessageBox.warning(self, _("Warning"),
-                     _("Window layout will be reset to default settings: "
-                       "this affects window position, size and dockwidgets.\n"
-                       "Do you want to continue?"),
-                     QMessageBox.Yes | QMessageBox.No)
-        if answer == QMessageBox.Yes:
-            self.setup_layout(default=True)
-
-    def quick_layout_save(self):
-        """Save layout dialog"""
-        get = CONF.get
-        set_ = CONF.set
-        names = get('quick_layouts', 'names')
-        order = get('quick_layouts', 'order')
-        active = get('quick_layouts', 'active')
-
-        dlg = self.dialog_layout_save(self, names)
-
-        if dlg.exec_():
-            name = dlg.combo_box.currentText()
-
-            if name in names:
-                answer = QMessageBox.warning(self, _("Warning"),
-                                             _("Layout <b>%s</b> will be \
-                                               overwritten. Do you want to \
-                                               continue?") % name,
-                                             QMessageBox.Yes | QMessageBox.No)
-                index = order.index(name)
-            else:
-                answer = True
-                if None in names:
-                    index = names.index(None)
-                    names[index] = name
-                else:
-                    index = len(names)
-                    names.append(name)
-                order.append(name)
-
-            # Always make active a new layout even if it overwrites an inactive
-            # layout
-            if name not in active:
-                active.append(name)
-
-            if answer:
-                self.save_current_window_settings('layout_{}/'.format(index),
-                                                  section='quick_layouts')
-                set_('quick_layouts', 'names', names)
-                set_('quick_layouts', 'order', order)
-                set_('quick_layouts', 'active', active)
-                self.quick_layout_set_menu()
-
-    def quick_layout_settings(self):
-        """Layout settings dialog"""
-        get = CONF.get
-        set_ = CONF.set
-
-        section = 'quick_layouts'
-
-        names = get(section, 'names')
-        order = get(section, 'order')
-        active = get(section, 'active')
-
-        dlg = self.dialog_layout_settings(self, names, order, active)
-        if dlg.exec_():
-            set_(section, 'names', dlg.names)
-            set_(section, 'order', dlg.order)
-            set_(section, 'active', dlg.active)
-            self.quick_layout_set_menu()
-
-    def quick_layout_switch(self, index):
-        """Switch to quick layout number *index*"""
-        section = 'quick_layouts'
-
-        try:
-            settings = self.load_window_settings('layout_{}/'.format(index),
-                                                 section=section)
-            (hexstate, window_size, prefs_dialog_size, pos, is_maximized,
-             is_fullscreen) = settings
-
-            # The defaults layouts will always be regenerated unless there was
-            # an overwrite, either by rewriting with same name, or by deleting
-            # and then creating a new one
-            if hexstate is None:
-                # The value for hexstate shouldn't be None for a custom saved
-                # layout (ie, where the index is greater than the number of
-                # defaults).  See spyder-ide/spyder#6202.
-                if index != 'default' and index >= self.DEFAULT_LAYOUTS:
-                    QMessageBox.critical(
-                            self, _("Warning"),
-                            _("Error opening the custom layout.  Please close"
-                              " Spyder and try again.  If the issue persists,"
-                              " then you must use 'Reset to Spyder default' "
-                              "from the layout menu."))
-                    return
-                self.setup_default_layouts(index, settings)
-        except cp.NoOptionError:
-            QMessageBox.critical(self, _("Warning"),
-                                 _("Quick switch layout #%s has not yet "
-                                   "been defined.") % str(index))
-            return
-            # TODO: is there any real use in calling the previous layout
-            # setting?
-            # self.previous_layout_settings = self.get_window_settings()
-        self.set_window_settings(*settings)
-        self.current_quick_layout = index
-
-        # make sure the flags are correctly set for visible panes
-        for plugin in (self.widgetlist + self.thirdparty_plugins):
-            action = plugin._toggle_view_action
-            action.setChecked(plugin.dockwidget.isVisible())
 
     # --- Show/Hide toolbars
     def _update_show_toolbars_action(self):
@@ -3013,100 +2418,6 @@ class MainWindow(QMainWindow):
         self.maximize_action.setText(text)
         self.maximize_action.setIcon(icon)
         self.maximize_action.setToolTip(tip)
-
-    @Slot()
-    @Slot(bool)
-    def maximize_dockwidget(self, restore=False):
-        """Shortcut: Ctrl+Alt+Shift+M
-        First call: maximize current dockwidget
-        Second call (or restore=True): restore original window layout"""
-        if self.state_before_maximizing is None:
-            if restore:
-                return
-
-            # Select plugin to maximize
-            self.state_before_maximizing = self.saveState()
-            focus_widget = QApplication.focusWidget()
-
-            for plugin in (self.widgetlist + self.thirdparty_plugins):
-                plugin.dockwidget.hide()
-
-                try:
-                    # New API
-                    if plugin.get_widget().isAncestorOf(focus_widget):
-                        self.last_plugin = plugin
-                except Exception:
-                    # Old API
-                    if plugin.isAncestorOf(focus_widget):
-                        self.last_plugin = plugin
-
-            # Only plugins that have a dockwidget are part of widgetlist,
-            # so last_plugin can be None after the above "for" cycle.
-            # For example, this happens if, after Spyder has started, focus
-            # is set to the Working directory toolbar (which doesn't have
-            # a dockwidget) and then you press the Maximize button
-            if self.last_plugin is None:
-                # Using the Editor as default plugin to maximize
-                self.last_plugin = self.editor
-
-            # Maximize last_plugin
-            self.last_plugin.dockwidget.toggleViewAction().setDisabled(True)
-            try:
-                # New API
-                self.setCentralWidget(self.last_plugin.get_widget())
-            except AttributeError:
-                # Old API
-                self.setCentralWidget(self.last_plugin)
-
-            self.last_plugin._ismaximized = True
-
-            # Workaround to solve an issue with editor's outline explorer:
-            # (otherwise the whole plugin is hidden and so is the outline explorer
-            #  and the latter won't be refreshed if not visible)
-            try:
-                # New API
-                self.last_plugin.get_widget().show()
-                self.last_plugin.change_visibility(True)
-            except AttributeError:
-                # Old API
-                self.last_plugin.show()
-                self.last_plugin._visibility_changed(True)
-
-            if self.last_plugin is self.editor:
-                # Automatically show the outline if the editor was maximized:
-                self.addDockWidget(Qt.RightDockWidgetArea,
-                                   self.outlineexplorer.dockwidget)
-                self.outlineexplorer.dockwidget.show()
-        else:
-            # Restore original layout (before maximizing current dockwidget)
-            try:
-                # New API
-                self.last_plugin.dockwidget.setWidget(
-                    self.last_plugin.get_widget())
-            except AttributeError:
-                # Old API
-                self.last_plugin.dockwidget.setWidget(self.last_plugin)
-
-            self.last_plugin.dockwidget.toggleViewAction().setEnabled(True)
-            self.setCentralWidget(None)
-
-            try:
-                # New API
-                self.last_plugin.get_widget().is_maximized = False
-            except AttributeError:
-                # Old API
-                self.last_plugin._ismaximized = False
-
-            self.restoreState(self.state_before_maximizing)
-            self.state_before_maximizing = None
-            try:
-                # New API
-                self.last_plugin.get_widget().get_focus_widget().setFocus()
-            except AttributeError:
-                # Old API
-                self.last_plugin.get_focus_widget().setFocus()
-
-        self.__update_maximize_action()
 
     def __update_fullscreen_action(self):
         if self.fullscreen_flag:
@@ -3987,6 +3298,7 @@ def run_spyder(app, options, args):
                 pass
         raise
 
+    main.pre_visible_setup()
     main.show()
     main.post_visible_setup()
 
